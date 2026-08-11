@@ -6,18 +6,21 @@
 // Vertex shader source code as a string 
 const char* vertexShaderSource = "#version 330 core\n"
 "layout (location = 0) in vec3 aPos;\n"
+"out vec4 vertexColor;\n"
 "void main()\n"
 "{\n"
 "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+"   vertexColor = vec4(0.5, 0.0, 0.0, 1.0);\n"
 "}\0";
 
 // Fragment shader source code as a string
 const char* fragmentShaderSource = "#version 330 core\n"
 "out vec4 FragColor;\n"
+"uniform vec4 ourColor;\n"
 "void main()\n"
 "{\n"
-"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-"}\n\0";
+"   FragColor = ourColor;\n"
+"}\0";
 
 
 // Callback fucntion to adjust the viewport when the window is resized
@@ -45,7 +48,6 @@ unsigned int indices[] = {
 	0,1,3, //first triangle
 	1,2,3  //second triangle
 };
-
 
 
 int main() {
@@ -141,6 +143,8 @@ int main() {
 	//Unbind the VAO
 	glBindVertexArray(0);
 
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 
 	//Render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -151,8 +155,14 @@ int main() {
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		
-		//draw the triangle
+		//Update the uniform color value in the fragment shader based on time
+		float timeValue = glfwGetTime();
+		float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+		int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
 		glUseProgram(shaderProgram);
+		glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+		//Draw the rectangle
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
