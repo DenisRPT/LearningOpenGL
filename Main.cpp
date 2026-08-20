@@ -1,8 +1,14 @@
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include "Shader.h"
 #include "stb_image.h"
+
+
+float blendingFactor = 0.2f; //Initial blending factor
 
 
 // Callback fucntion to adjust the viewport when the window is resized
@@ -10,10 +16,16 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
-// Process input : close the window when the escape key is pressed
+// Process input : close the window when the escape key is pressed , and adjust the blending factor when the up or down arrow keys are pressed
 void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		if (blendingFactor < 1.0f) blendingFactor += 0.001f;
+	}
+	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+		if (blendingFactor > 0.1f) blendingFactor -= 0.001f;
+	}
 }
 
 // Define the vertices of a rectangle with position, color, and texture coordinates
@@ -31,7 +43,7 @@ unsigned int indices[] = {
 	1,2,3  // second triangle
 };
 
-
+// Define the texture coordinates for the rectangle
 float texCoords[] = {
 	0.0f, 0.0f, //lower-left corner
 	1.0f, 0.0f, //lower-right corner
@@ -39,7 +51,9 @@ float texCoords[] = {
 };
 
 
+
 int main() {
+
 
 	//Initialize GLFW and configure OpenGL version
 	glfwInit();
@@ -157,9 +171,15 @@ int main() {
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
+		glm::mat4 trans = glm::mat4(1.0f);
+		trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+		trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+		unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+
 		//Activate the shader program
 		ourShader.use();
-
+		ourShader.setFloat("mixValue", blendingFactor); //Set the blending factor uniform
 
 		//Draw the rectangle
 		glActiveTexture(GL_TEXTURE0);
