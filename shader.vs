@@ -7,11 +7,13 @@ layout (location = 2) in vec2 aTexCoord; // the texture coordinate variable has 
 out vec3 ourColor; // output a color to the fragment shader
 out vec2 TexCoord; // output a texture coordinate to the fragment shader
 
-uniform mat4 transform; // the transformation matrix
+uniform mat4 model; // the model matrix
+uniform mat4 view; // the view matrix
+uniform mat4 projection; // the projection matrix
 
 void main()
 {
-   gl_Position = transform *vec4(aPos.x, aPos.y, aPos.z, 1.0); // set the position of the vertex
+   gl_Position = projection*view*model*vec4(aPos.x, aPos.y, aPos.z, 1.0); // set the position of the vertex
    ourColor = aColor;
    TexCoord = aTexCoord;
 };
