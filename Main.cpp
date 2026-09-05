@@ -9,6 +9,14 @@
 
 
 float blendingFactor = 0.2f; //Initial blending factor
+float deltaTime = 0.0f; //Time between current frame and last frame
+float lastFrame = 0.0f; //Time of last frame
+
+
+// Define the camera position, front direction, and up vector
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 
 // Callback fucntion to adjust the viewport when the window is resized
@@ -18,14 +26,17 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 // Process input : close the window when the escape key is pressed , and adjust the blending factor when the up or down arrow keys are pressed
 void processInput(GLFWwindow* window) {
+	float cameraSpeed = 2.5f * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
-	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-		if (blendingFactor < 1.0f) blendingFactor += 0.001f;
-	}
-	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-		if (blendingFactor > 0.1f) blendingFactor -= 0.001f;
-	}
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		cameraPos += cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		cameraPos -= cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
 
 // Define the vertices of a rectangle with position, color, and texture coordinates
@@ -100,6 +111,7 @@ glm::vec3 cubePositions[] = {
 	glm::vec3(1.5f,  0.2f, -1.5f),
 	glm::vec3(-1.3f,  1.0f, -1.5f)
 };
+
 
 // Define the texture coordinates for the rectangle
 float texCoords[] = {
@@ -223,6 +235,13 @@ int main() {
 
 	//Render loop
 	while (!glfwWindowShouldClose(window)) {
+
+
+		//Calculate the time between the current frame and the last frame
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
 		//process input
 		processInput(window);
 
@@ -246,8 +265,8 @@ int main() {
 		projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
 		ourShader.setMat4("projection", projection);
 
-		glm::mat4 view = glm::mat4(1.0f);
-		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+		glm::mat4 view;
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ourShader.setMat4("view", view);
 	
 		for (unsigned int i = 0; i < 10; i++) {
