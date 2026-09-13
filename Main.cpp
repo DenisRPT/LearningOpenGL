@@ -11,6 +11,10 @@
 float blendingFactor = 0.2f; //Initial blending factor
 float deltaTime = 0.0f; //Time between current frame and last frame
 float lastFrame = 0.0f; //Time of last frame
+float yaw = -90.0f; //Yaw angle for camera rotation
+float pitch = 0.0f; //Pitch angle for camera rotation
+float lastX = 400, lastY = 300; //Last mouse position
+bool firstMouse = true; //Flag to check if it's the first mouse movement
 
 
 // Define the camera position, front direction, and up vector
@@ -38,6 +42,42 @@ void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
+
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+
+	if (firstMouse) {
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos; // Reversed since y-coordinates go from bottom to top
+	lastX = xpos;
+	lastY = ypos;
+
+	const float sensivity = 0.1f;
+	xoffset *= sensivity;
+	yoffset *= sensivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	if(pitch > 89.0f)
+		pitch = 89.0f;
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	glm::vec3 direction(
+		cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+		sin(glm::radians(pitch)),
+		sin(glm::radians(yaw)) * cos(glm::radians(pitch))
+	);
+	cameraFront = glm::normalize(direction);
+
+}
+
 
 // Define the vertices of a rectangle with position, color, and texture coordinates
 //float vertices[] = {
@@ -131,6 +171,7 @@ int main() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+
 	//Create a window and make its context current
 	GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
 	if (window == NULL) {
@@ -150,6 +191,9 @@ int main() {
 	//Set the viewport and register the framebuffer size callback function
 	glViewport(0, 0, 800, 600);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+	//Disable the cursor for camera control
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	//Compile and link the shader program using the Shader class
 	Shader ourShader("shader.vs", "shader.fs");
@@ -244,6 +288,7 @@ int main() {
 
 		//process input
 		processInput(window);
+		glfwSetCursorPosCallback(window, mouse_callback);
 
 		//render
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
