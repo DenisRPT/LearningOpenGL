@@ -5,22 +5,21 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Shader.h"
+#include "Camera.h"
 #include "stb_image.h"
 
 
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
 float blendingFactor = 0.2f; //Initial blending factor
-float deltaTime = 0.0f; //Time between current frame and last frame
-float lastFrame = 0.0f; //Time of last frame
-float yaw = -90.0f; //Yaw angle for camera rotation
-float pitch = 0.0f; //Pitch angle for camera rotation
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f)); //Camera object
 float lastX = 400, lastY = 300; //Last mouse position
 bool firstMouse = true; //Flag to check if it's the first mouse movement
 
+float deltaTime = 0.0f; //Time between current frame and last frame
+float lastFrame = 0.0f; //Time of last frame
 
-// Define the camera position, front direction, and up vector
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 
 // Callback fucntion to adjust the viewport when the window is resized
@@ -30,21 +29,25 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 // Process input : close the window when the escape key is pressed , and adjust the blending factor when the up or down arrow keys are pressed
 void processInput(GLFWwindow* window) {
-	float cameraSpeed = 2.5f * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		cameraPos += cameraSpeed * cameraFront;
+
+	if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		camera.ProcessKeyboard(FORWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		cameraPos -= cameraSpeed * cameraFront;
+		camera.ProcessKeyboard(BACKWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+		camera.ProcessKeyboard(RIGHT, deltaTime);
+	
 }
 
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
+
+	float xpos = static_cast<float>(xposIn);
+	float ypos = static_cast<float>(yposIn);
 
 	if (firstMouse) {
 		lastX = xpos;
@@ -53,29 +56,16 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	}
 
 	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos; // Reversed since y-coordinates go from bottom to top
+	float yoffset = lastY - ypos;
+
 	lastX = xpos;
 	lastY = ypos;
 
-	const float sensivity = 0.1f;
-	xoffset *= sensivity;
-	yoffset *= sensivity;
+	camera.ProcessMouseMovement(xoffset, yoffset);
+}
 
-	yaw += xoffset;
-	pitch += yoffset;
-
-	if(pitch > 89.0f)
-		pitch = 89.0f;
-	if (pitch < -89.0f)
-		pitch = -89.0f;
-
-	glm::vec3 direction(
-		cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
-		sin(glm::radians(pitch)),
-		sin(glm::radians(yaw)) * cos(glm::radians(pitch))
-	);
-	cameraFront = glm::normalize(direction);
-
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
 
@@ -180,6 +170,10 @@ int main() {
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
+	
+	//Register the mouse and scroll callback functions
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 
 	//Initialize GLAD to load OpenGL functions pointers
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -277,58 +271,55 @@ int main() {
 	ourShader.setInt("texture2", 1);
 
 
-	//Render loop
-	while (!glfwWindowShouldClose(window)) {
-
-
-		//Calculate the time between the current frame and the last frame
-		float currentFrame = glfwGetTime();
+	while (!glfwWindowShouldClose(window))
+	{
+		// per-frame time logic
+		// --------------------
+		float currentFrame = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
-		//process input
+		// input
+		// -----
 		processInput(window);
-		glfwSetCursorPosCallback(window, mouse_callback);
 
-		//render
+		// render
+		// ------
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-		//Activate textures
+		// bind textures on corresponding texture units
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, texture2);
 
-		//Activate the shader program
+		// activate shader
 		ourShader.use();
-		ourShader.setFloat("mixValue", blendingFactor); //Set the blending factor uniform
-		glBindVertexArray(VAO);
 
-		glm::mat4 projection = glm::mat4(1.0f);
-		projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+		// pass projection matrix to shader (note that in this case it could change every frame)
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 		ourShader.setMat4("projection", projection);
 
-		glm::mat4 view;
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		// camera/view transformation
+		glm::mat4 view = camera.GetViweMatrix();
 		ourShader.setMat4("view", view);
-	
-		for (unsigned int i = 0; i < 10; i++) {
-			glm::mat4 model = glm::mat4(1.0f);
+
+		// render boxes
+		glBindVertexArray(VAO);
+		for (unsigned int i = 0; i < 10; i++)
+		{
+			// calculate the model matrix for each object and pass it to shader before drawing
+			glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 			model = glm::translate(model, cubePositions[i]);
-			model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f) + i, glm::vec3(0.5f, 1.0, 0.0f));
+			float angle = 20.0f * i;
+			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 			ourShader.setMat4("model", model);
+
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-		
-
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-
-		//swap buffers and poll IO events
+		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
